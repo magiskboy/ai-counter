@@ -6,6 +6,7 @@ COUNTER_HOME="${COUNTER_HOME:-/home/counter}"
 COUNTER_UID="$(id -u "$COUNTER_USER" 2>/dev/null || echo 1000)"
 
 export HOME="$COUNTER_HOME"
+export COUNTER_HOME="$HOME"
 
 if [[ ! -d "$HOME" ]]; then
   echo "ERROR: HOME directory does not exist: $HOME" >&2
@@ -22,6 +23,10 @@ if ! gosu "$COUNTER_USER" test -w "$HOME"; then
 fi
 
 gosu "$COUNTER_USER" mkdir -p "$HOME/ai-counter/logs"
+
+# Sync timezone with host (TZ env, config schedule.timezone, or mounted /etc/localtime)
+# shellcheck source=/opt/ai-counter/docker/setup-timezone.sh
+source /opt/ai-counter/docker/setup-timezone.sh
 
 if [[ ! -f "$HOME/ai-counter/config.yaml" ]]; then
   echo "WARNING: $HOME/ai-counter/config.yaml missing." >&2
@@ -46,12 +51,12 @@ echo "  See README.md for full setup steps."
 echo ""
 echo "  Verify: podman exec -u $COUNTER_USER ai-counter z8l auth status"
 echo ""
-echo "Schedule: Mon-Fri 06:30 UTC (runs as $COUNTER_USER, see docker/crontab)"
+echo "Schedule: Mon-Fri 06:30 ($TZ, runs as $COUNTER_USER, see docker/crontab)"
 echo "Manual:   podman exec -u $COUNTER_USER ai-counter /opt/ai-counter/docker/run-daily.sh"
 echo "Dry-run:  podman exec -u $COUNTER_USER ai-counter /opt/ai-counter/docker/run-daily.sh --dry-run"
 echo "Shell:    podman exec -u $COUNTER_USER -it ai-counter bash"
 
-cp /opt/ai-counter/docker/crontab /etc/cron.d/ai-counter
+sed "s|^TZ=.*|TZ=${TZ}|" /opt/ai-counter/docker/crontab > /etc/cron.d/ai-counter
 chmod 0644 /etc/cron.d/ai-counter
 
 exec cron -f

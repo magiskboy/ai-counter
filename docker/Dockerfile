@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     nodejs \
     npm \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # z8l — vendored in repo (see bin/z8l, scripts/vendor-z8l.sh to refresh)

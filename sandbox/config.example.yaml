@@ -55,6 +55,8 @@ z8l:
   sync_provider: cursor
 
 schedule:
+  # Container TZ (cron + logs). Override with -e TZ=... on podman run, or mount host /etc/localtime.
+  timezone: Asia/Ho_Chi_Minh
   cron: "30 6 * * 1-5"
 
 prompts:
