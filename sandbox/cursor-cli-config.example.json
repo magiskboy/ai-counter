@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(*)",
+      "Mcp(context7:*)",
+      "Mcp(*:*)"
+    ],
+    "deny": [
+      "Shell(rm)",
+      "Read(.env*)",
+      "Write(**/.env*)"
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+.venv
+.git
+.specstory
+__pycache__
+*.pyc
+sandbox-test
+*.log
+.env
+.cursor

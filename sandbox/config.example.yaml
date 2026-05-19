@@ -1,0 +1,35 @@
+# Copy to $SANDBOX/ai-counter/config.yaml after bootstrap.
+# Paths below are relative to HOME (/home/counter in the container, user `counter`).
+
+sandbox:
+  projects_dir: projects
+  projects:
+    - name: fake-api
+      sessions_per_day: 4
+    - name: fake-web
+      sessions_per_day: 3
+    - name: fake-lib
+      sessions_per_day: 3
+
+cursor:
+  binary: cursor-agent
+  # Headless auto-approve (see cursor.com/docs/cli/headless, /cli/mcp):
+  # -p/--print + --trust (workspace) + --force/--yolo (shell/file tools) + --approve-mcps (MCP)
+  flags:
+    - "-p"
+    - "--trust"
+    - "-f"
+    - "--approve-mcps"
+  timeout_seconds: 900
+  delay_between_sessions: 45
+
+z8l:
+  binary: /usr/local/bin/z8l
+  sync_provider: cursor
+
+schedule:
+  cron: "30 6 * * 1-5"
+
+prompts:
+  file: /opt/ai-counter/prompts/daily.yaml
+  rotate: daily

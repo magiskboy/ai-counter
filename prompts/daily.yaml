@@ -1,0 +1,76 @@
+# Rotated daily by orchestrator. Each entry ~= one cursor-agent conversation.
+sessions:
+  - id: slash-brainstorm
+    breadth: [slash]
+    prompt: |
+      /brainstorm
+      Brainstorm a minimal daily-job module layout for this repo.
+      Analysis only — do not modify files.
+
+  - id: skill-tdd
+    breadth: [skill]
+    prompt: |
+      Use test-driven-development skill: propose tests for main.py first,
+      then suggest the smallest implementation. Do not write files unless necessary.
+
+  - id: subagent-explore
+    breadth: [subagent]
+    prompt: |
+      Dispatch a subagent to explore this repository structure and summarize
+      key directories in 5 bullets. Read-only — no file edits.
+
+  - id: mcp-docs
+    breadth: [mcp]
+    prompt: |
+      Use the context7 MCP server (resolve-library-id + query-docs) to look up
+      Cursor CLI headless flags for auto-approving tool calls (--force, --approve-mcps).
+      Summarize in 5 bullets. Do not edit project files.
+
+  - id: refactor-main
+    breadth: []
+    prompt: |
+      Review main.py and suggest a refactor to separate CLI entry from business logic.
+      Show a short diff in the response only — do not apply changes.
+
+  - id: add-logging
+    breadth: []
+    prompt: |
+      Propose where structured logging should go in this project and what fields to log.
+      Do not modify files.
+
+  - id: slash-plan
+    breadth: [slash]
+    prompt: |
+      /write-plan
+      Create a short implementation plan for adding a health-check HTTP endpoint.
+      Plan only, no code changes.
+
+  - id: skill-debug
+    breadth: [skill]
+    prompt: |
+      Use systematic-debugging skill: imagine main.py raised on import — list
+      the top 3 hypotheses and how you would verify each. No file edits.
+
+  - id: api-review
+    breadth: []
+    prompt: |
+      If this were a REST API service, list 5 API endpoints you would add and why.
+      Keep answers specific to patterns visible in this repo.
+
+  - id: docker-notes
+    breadth: []
+    prompt: |
+      Outline a Dockerfile structure for containerizing this project.
+      Mention base image, dependencies, and entrypoint. No file writes.
+
+  - id: test-coverage
+    breadth: []
+    prompt: |
+      List unit tests worth adding for main.py and rank them by priority.
+      Do not create test files.
+
+  - id: readme-outline
+    breadth: []
+    prompt: |
+      Draft a README outline (headings + 1 sentence each) for this project.
+      Output markdown in the chat only.

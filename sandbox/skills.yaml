@@ -1,0 +1,17 @@
+# Agent skills installed into $SANDBOX via scripts/install-sandbox-skills.sh
+# Non-interactive: npx skills add <repo> --skill <name> -g -y -a cursor
+
+packages:
+  - repo: https://github.com/obra/superpowers
+    skills:
+      - brainstorming
+      # Optional — uncomment for more L4 breadth (skill_invokes):
+      # - writing-plans
+      # - systematic-debugging
+      # - using-superpowers
+      # - subagent-driven-development
+
+install:
+  global: true          # -g → $HOME/.agents/skills/
+  agent: cursor         # -a cursor
+  yes: true             # -y skip prompts
