@@ -102,8 +102,14 @@ echo ""
 echo "z8l auth (host)"
 if [[ -f "$SANDBOX/.z8l/cli/supabase-auth.json" ]]; then
   ok "supabase-auth.json in sandbox"
-elif [[ -d "$SANDBOX" ]] && HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null | grep -qi 'logged in'; then
-  ok "z8l auth status: logged in"
+elif [[ -d "$SANDBOX" ]]; then
+  z8l_out="$(HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null || true)"
+  z8l_low="${z8l_out,,}"
+  if [[ "$z8l_low" != *"not logged in"* && "$z8l_low" == *"logged in"* ]]; then
+    ok "z8l auth status: logged in"
+  else
+    fail "z8l not authenticated — HOME=$SANDBOX $ROOT/bin/z8l auth login"
+  fi
 else
   fail "z8l not authenticated — HOME=$SANDBOX $ROOT/bin/z8l auth login"
 fi
@@ -125,7 +131,9 @@ elif "$RUNTIME_BIN" ps --format '{{.Names}}' 2>/dev/null | grep -qx "$NAME"; the
   else
     warn "cannot exec into $NAME"
   fi
-  if "$RUNTIME_BIN" exec -u counter "$NAME" z8l auth status 2>/dev/null | grep -qi 'logged in'; then
+  z8l_in="$("$RUNTIME_BIN" exec -u counter "$NAME" z8l auth status 2>/dev/null || true)"
+  z8l_in_low="${z8l_in,,}"
+  if [[ "$z8l_in_low" != *"not logged in"* && "$z8l_in_low" == *"logged in"* ]]; then
     ok "z8l auth inside container"
   else
     warn "z8l not logged in inside container (token may be missing on sandbox)"

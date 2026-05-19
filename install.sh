@@ -242,9 +242,43 @@ build_image() {
   exit 1
 }
 
+# Avoid false positive: "Not logged in" also contains "logged in".
+_cli_status_logged_in() {
+  local out="$1"
+  local low="${out,,}"
+  [[ "$low" == *"not logged in"* ]] && return 1
+  [[ "$low" == *"logged in"* || "$low" == *"authenticated"* ]]
+}
+
+have_interactive_tty() {
+  [[ -t 0 ]] && return 0
+  [[ -r /dev/tty && -w /dev/tty ]]
+}
+
+run_interactive() {
+  if [[ -t 0 ]]; then
+    "$@"
+  elif [[ -r /dev/tty && -w /dev/tty ]]; then
+    "$@" </dev/tty >/dev/tty 2>&1
+  else
+    return 1
+  fi
+}
+
+wait_for_container() {
+  local i
+  for i in $(seq 1 15); do
+    container_running && return 0
+    sleep 1
+  done
+  return 1
+}
+
 z8l_authenticated() {
   [[ -f "$SANDBOX/.z8l/cli/supabase-auth.json" ]] && return 0
-  HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null | grep -qi 'logged in'
+  local out
+  out="$(HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null)" || return 1
+  _cli_status_logged_in "$out"
 }
 
 cursor_authenticated() {
@@ -252,7 +286,7 @@ cursor_authenticated() {
   local out
   out="$("$RUNTIME_BIN" exec -u counter "$AI_COUNTER_CONTAINER_NAME" \
     cursor-agent status 2>/dev/null)" || return 1
-  [[ "$out" != *"Not logged in"* ]] && echo "$out" | grep -qi 'logged in'
+  _cli_status_logged_in "$out"
 }
 
 # Copy z8l session from host ~/.z8l into mounted sandbox HOME.
@@ -285,21 +319,15 @@ setup_z8l_auth() {
     fi
   fi
 
-  if [[ ! -t 0 ]]; then
-    echo "WARN: z8l chưa login — cần TTY. Chạy trên host:" >&2
-    echo "       $ROOT/bin/z8l auth login" >&2
-    echo "       rồi: cp ~/.z8l/cli/supabase-auth.json $SANDBOX/.z8l/cli/" >&2
+  if ! have_interactive_tty; then
+    echo "WARN: z8l chưa login — cần TTY. Chạy:" >&2
+    echo "       HOME=$SANDBOX $ROOT/bin/z8l auth login" >&2
     return 1
   fi
 
-  echo "==> z8l: đăng nhập trên host (browser, HOME=$HOME)..."
-  if ! "$ROOT/bin/z8l" auth login; then
+  echo "==> z8l: đăng nhập (browser, HOME=$SANDBOX)..."
+  if ! run_interactive env HOME="$SANDBOX" "$ROOT/bin/z8l" auth login; then
     echo "WARN: z8l auth login thất bại" >&2
-    return 1
-  fi
-
-  if ! copy_z8l_auth_to_sandbox; then
-    echo "WARN: không tìm thấy ~/.z8l/cli/supabase-auth.json sau login" >&2
     return 1
   fi
 
@@ -317,8 +345,8 @@ setup_z8l_auth() {
 }
 
 setup_cursor_auth() {
-  if ! container_running; then
-    echo "WARN: container chưa chạy — bỏ qua cursor-agent login" >&2
+  if ! wait_for_container; then
+    echo "WARN: container chưa sẵn sàng — bỏ qua cursor-agent login" >&2
     return 1
   fi
 
@@ -327,14 +355,15 @@ setup_cursor_auth() {
     return 0
   fi
 
-  if [[ ! -t 0 ]]; then
+  if ! have_interactive_tty; then
     echo "WARN: cursor-agent login cần TTY (-it). Chạy:" >&2
     echo "       $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login" >&2
     return 1
   fi
 
   echo "==> cursor-agent: đăng nhập trong container (browser)..."
-  if "$RUNTIME_BIN" exec -u counter -it "$AI_COUNTER_CONTAINER_NAME" cursor-agent login; then
+  if run_interactive "$RUNTIME_BIN" exec -u counter -it "$AI_COUNTER_CONTAINER_NAME" \
+    cursor-agent login; then
     if cursor_authenticated; then
       echo "==> cursor-agent: OK"
       return 0
@@ -347,7 +376,7 @@ setup_cursor_auth() {
 
 setup_credentials() {
   echo ""
-  echo "==> Thiết lập credential (z8l trên host → sandbox, cursor trong container)"
+  echo "==> Thiết lập credential (z8l + cursor-agent login sau khi container chạy)"
   setup_z8l_auth || true
   setup_cursor_auth || true
 }
@@ -395,9 +424,8 @@ print_next_steps() {
     echo "  ✓ z8l (sandbox: $SANDBOX/.z8l/cli/)"
   else
     cat <<EOF
-  • z8l (host → copy vào sandbox):
-      $ROOT/bin/z8l auth login
-      cp ~/.z8l/cli/supabase-auth.json $SANDBOX/.z8l/cli/
+  • z8l (sandbox HOME):
+      HOME=$SANDBOX $ROOT/bin/z8l auth login
 
 EOF
   fi
