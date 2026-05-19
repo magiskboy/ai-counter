@@ -305,7 +305,7 @@ copy_z8l_auth_to_sandbox() {
 
 setup_z8l_auth() {
   if z8l_authenticated; then
-    echo "==> z8l: đã đăng nhập (sandbox)"
+    echo "==> z8l: logged in (sandbox)"
     return 0
   fi
 
@@ -314,20 +314,20 @@ setup_z8l_auth() {
       || sudo chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
       || true
     if z8l_authenticated; then
-      echo "==> z8l: đã copy credential từ host → $SANDBOX/.z8l/cli/"
+      echo "==> z8l: copied host credentials → $SANDBOX/.z8l/cli/"
       return 0
     fi
   fi
 
   if ! have_interactive_tty; then
-    echo "WARN: z8l chưa login — cần TTY. Chạy:" >&2
+    echo "WARN: z8l not logged in — needs TTY. Run:" >&2
     echo "       HOME=$SANDBOX $ROOT/bin/z8l auth login" >&2
     return 1
   fi
 
-  echo "==> z8l: đăng nhập (browser, HOME=$SANDBOX)..."
+  echo "==> z8l: login (browser, HOME=$SANDBOX)..."
   if ! run_interactive env HOME="$SANDBOX" "$ROOT/bin/z8l" auth login; then
-    echo "WARN: z8l auth login thất bại" >&2
+    echo "WARN: z8l auth login failed" >&2
     return 1
   fi
 
@@ -336,32 +336,32 @@ setup_z8l_auth() {
     || true
 
   if z8l_authenticated; then
-    echo "==> z8l: OK (credential trong $SANDBOX/.z8l/cli/)"
+    echo "==> z8l: OK ($SANDBOX/.z8l/cli/)"
     return 0
   fi
 
-  echo "WARN: z8l auth status vẫn chưa logged in trong sandbox" >&2
+  echo "WARN: z8l still not logged in in sandbox" >&2
   return 1
 }
 
 setup_cursor_auth() {
   if ! wait_for_container; then
-    echo "WARN: container chưa sẵn sàng — bỏ qua cursor-agent login" >&2
+    echo "WARN: container not ready — skipping cursor-agent login" >&2
     return 1
   fi
 
   if cursor_authenticated; then
-    echo "==> cursor-agent: đã đăng nhập"
+    echo "==> cursor-agent: logged in"
     return 0
   fi
 
   if ! have_interactive_tty; then
-    echo "WARN: cursor-agent login cần TTY (-it). Chạy:" >&2
+    echo "WARN: cursor-agent login needs TTY (-it). Run:" >&2
     echo "       $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login" >&2
     return 1
   fi
 
-  echo "==> cursor-agent: đăng nhập trong container (browser)..."
+  echo "==> cursor-agent: login in container (browser)..."
   if run_interactive "$RUNTIME_BIN" exec -u counter -it "$AI_COUNTER_CONTAINER_NAME" \
     cursor-agent login; then
     if cursor_authenticated; then
@@ -370,13 +370,13 @@ setup_cursor_auth() {
     fi
   fi
 
-  echo "WARN: cursor-agent chưa authenticated — chạy lại lệnh exec ở trên" >&2
+  echo "WARN: cursor-agent not authenticated — rerun exec above" >&2
   return 1
 }
 
 setup_credentials() {
   echo ""
-  echo "==> Thiết lập credential (z8l + cursor-agent login sau khi container chạy)"
+  echo "==> Credentials (z8l + cursor-agent after container start)"
   setup_z8l_auth || true
   setup_cursor_auth || true
 }
@@ -402,22 +402,22 @@ print_next_steps() {
 
   echo ""
   echo "════════════════════════════════════════════════════════════"
-  echo "  Cài đặt xong — việc cần làm tiếp"
+  echo "  Install complete — next steps"
   echo "════════════════════════════════════════════════════════════"
   echo ""
-  echo "Đã thiết lập:"
+  echo "Configured:"
   echo "  • Repo:       $ROOT"
   echo "  • Sandbox:    $SANDBOX"
-  echo "                (trong container: /home/counter)"
+  echo "                (in container: /home/counter)"
   echo "  • Image:      $AI_COUNTER_IMAGE"
   if [[ "$container_up" -eq 1 ]]; then
-    echo "  • Container:  $AI_COUNTER_CONTAINER_NAME — đang chạy ($RUNTIME_BIN)"
+    echo "  • Container:  $AI_COUNTER_CONTAINER_NAME — running ($RUNTIME_BIN)"
   elif [[ "$DO_START" -eq 0 ]]; then
-    echo "  • Container:  chưa start (bạn dùng --no-start)"
+    echo "  • Container:  not started (--no-start)"
   else
-    echo "  • Container:  $AI_COUNTER_CONTAINER_NAME — chưa chạy"
+    echo "  • Container:  $AI_COUNTER_CONTAINER_NAME — not running"
   fi
-  [[ "$SKIP_SKILLS" -eq 1 ]] && echo "  • Skills:     chưa cài (--skip-skills)"
+  [[ "$SKIP_SKILLS" -eq 1 ]] && echo "  • Skills:     skipped (--skip-skills)"
   echo ""
   echo "── Auth ─────────────────────────────────────────────────────"
   if [[ "$z8l_ok" -eq 1 ]]; then
@@ -431,7 +431,7 @@ EOF
   fi
 
   if [[ "$cursor_ok" -eq 1 ]]; then
-    echo "  ✓ cursor-agent (trong container)"
+    echo "  ✓ cursor-agent (in container)"
   elif [[ "$container_up" -eq 1 ]]; then
     echo "  • cursor-agent:"
     echo "      $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login"
@@ -439,38 +439,38 @@ EOF
 
   if [[ "$container_up" -eq 0 ]]; then
     cat <<EOF
-  • Khởi động container:
+  • Start container:
       $ROOT/install.sh
 
 EOF
   fi
 
-  echo "── Cấu hình project ─────────────────────────────────────────"
+  echo "── Projects ─────────────────────────────────────────────────"
   if _configured_projects; then
-    echo "  ✓ Đã có project trong $SANDBOX/ai-counter/config.yaml"
-    echo "    Thêm repo: clone vào $SANDBOX/projects/<tên> rồi sửa config."
+    echo "  ✓ Projects in $SANDBOX/ai-counter/config.yaml"
+    echo "    Add more: clone to $SANDBOX/projects/<name> and edit config."
   else
     cat <<EOF
-  • Clone repo thật vào sandbox:
+  • Clone into sandbox:
       git clone <url> $SANDBOX/projects/my-app
-  • Khai báo trong $SANDBOX/ai-counter/config.yaml:
+  • Add to $SANDBOX/ai-counter/config.yaml:
       sandbox:
         projects:
           - name: my-app
             conversations_per_day: 4
-  • Prompts (sửa không cần rebuild image):
+  • Prompts (no image rebuild):
       $SANDBOX/ai-counter/prompts/daily.yaml
 
 EOF
   fi
 
   if [[ "$SKIP_SKILLS" -eq 1 ]]; then
-    echo "  • Cài agent skills (đã bỏ lúc cài):"
+    echo "  • Agent skills (skipped during install):"
     echo "      SANDBOX=$SANDBOX $ROOT/scripts/install-sandbox-skills.sh"
     echo ""
   fi
 
-  echo "── Kiểm tra ─────────────────────────────────────────────────"
+  echo "── Verify ───────────────────────────────────────────────────"
   cat <<EOF
   • Doctor:    $ROOT/scripts/doctor.sh
 EOF
@@ -478,22 +478,22 @@ EOF
     if [[ "$dry_run_ok" -eq 1 ]]; then
       echo "  • Dry-run:   OK"
     elif [[ "$z8l_ok" -eq 0 ]] || ! _configured_projects; then
-      echo "  • Dry-run:   (sau khi z8l login + thêm project)"
+      echo "  • Dry-run:   (after z8l login + add project)"
       echo "               $RUNTIME_BIN exec -u counter $AI_COUNTER_CONTAINER_NAME \\"
       echo "                 /opt/ai-counter/docker/run-daily.sh --dry-run"
     else
-      echo "  • Dry-run:   thất bại — chạy doctor ở trên"
+      echo "  • Dry-run:   failed — run doctor above"
     fi
   fi
   echo ""
-  echo "── Dùng hàng ngày ───────────────────────────────────────────"
+  echo "── Daily use ────────────────────────────────────────────────"
   cat <<EOF
-  • Cron tự động: T2–T6 06:30 (Asia/Ho_Chi_Minh)
-  • Chạy tay:     $RUNTIME_BIN exec -u counter $AI_COUNTER_CONTAINER_NAME \\
-                    /opt/ai-counter/docker/run-daily.sh
-  • Log:          tail -f $SANDBOX/ai-counter/logs/daily-*.log
-                  tail -f $SANDBOX/ai-counter/logs/cron.log
-  • Cập nhật:     curl -fsSL https://raw.githubusercontent.com/magiskboy/ai-counter/main/install.sh | bash
+  • Cron: Mon–Fri 06:30 (Asia/Ho_Chi_Minh)
+  • Manual: $RUNTIME_BIN exec -u counter $AI_COUNTER_CONTAINER_NAME \\
+              /opt/ai-counter/docker/run-daily.sh
+  • Logs:   tail -f $SANDBOX/ai-counter/logs/daily-*.log
+            tail -f $SANDBOX/ai-counter/logs/cron.log
+  • Update: curl -fsSL https://raw.githubusercontent.com/magiskboy/ai-counter/main/install.sh | bash
 ════════════════════════════════════════════════════════════
 EOF
 }
@@ -580,7 +580,7 @@ if [[ "$DO_START" -eq 1 ]]; then
         /opt/ai-counter/docker/run-daily.sh --dry-run; then
         dry_run_ok=1
       else
-        echo "WARN: dry-run thất bại — xem hướng dẫn cuối script" >&2
+        echo "WARN: dry-run failed — see next-steps below" >&2
       fi
     fi
   fi
