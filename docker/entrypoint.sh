@@ -3,7 +3,8 @@ set -euo pipefail
 
 COUNTER_USER="${COUNTER_USER:-counter}"
 COUNTER_HOME="${COUNTER_HOME:-/home/counter}"
-COUNTER_UID="$(id -u "$COUNTER_USER" 2>/dev/null || echo 1000)"
+COUNTER_UID="${COUNTER_UID:-$(id -u "$COUNTER_USER" 2>/dev/null || echo 1000)}"
+COUNTER_GID="${COUNTER_GID:-$(id -g "$COUNTER_USER" 2>/dev/null || echo 1000)}"
 
 export HOME="$COUNTER_HOME"
 export COUNTER_HOME="$HOME"
@@ -16,7 +17,7 @@ fi
 
 if ! gosu "$COUNTER_USER" test -w "$HOME"; then
   echo "ERROR: $HOME is not writable by $COUNTER_USER (uid $COUNTER_UID)" >&2
-  echo "  On host: chown -R ${COUNTER_UID}:${COUNTER_UID} \$SANDBOX" >&2
+  echo "  On host: chown -R ${COUNTER_UID}:${COUNTER_GID} \$SANDBOX" >&2
   echo "  Or run: ./scripts/chown-sandbox.sh \$SANDBOX" >&2
   echo "  Rootless Podman: add --userns=keep-id to podman run" >&2
   exit 1

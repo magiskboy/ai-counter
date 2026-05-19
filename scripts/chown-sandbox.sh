@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Set sandbox ownership for container user `counter` (default uid 1000).
+# Set sandbox ownership for container user `counter` (host uid/gid by default).
 set -euo pipefail
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/lib/host-ids.sh
+source "$ROOT/scripts/lib/host-ids.sh"
+
 SANDBOX="${1:-}"
-COUNTER_UID="${COUNTER_UID:-1000}"
-COUNTER_GID="${COUNTER_GID:-1000}"
 
 if [[ -z "$SANDBOX" ]]; then
   echo "Usage: $0 /path/to/sandbox" >&2

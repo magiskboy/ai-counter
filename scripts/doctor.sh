@@ -5,6 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/lib/load-env.sh
 source "$ROOT/scripts/lib/load-env.sh"
+# shellcheck source=scripts/lib/host-ids.sh
+source "$ROOT/scripts/lib/host-ids.sh"
 
 SANDBOX="$(mkdir -p "$SANDBOX" 2>/dev/null && cd "$SANDBOX" && pwd)" || SANDBOX="${SANDBOX:-}"
 
@@ -92,10 +94,11 @@ else
   warn "missing projects/ (run ./install.sh)"
 fi
 
-if [[ -d "$SANDBOX" ]] && [[ "$(stat -c '%u' "$SANDBOX" 2>/dev/null || echo '?')" == "1000" ]]; then
-  ok "sandbox owned by uid 1000 (counter)"
+_sandbox_uid="$(stat -c '%u' "$SANDBOX" 2>/dev/null || echo '?')"
+if [[ -d "$SANDBOX" ]] && [[ "$_sandbox_uid" == "$COUNTER_UID" ]]; then
+  ok "sandbox owned by uid $COUNTER_UID (counter / host user)"
 else
-  warn "sandbox not uid 1000 — run ./scripts/chown-sandbox.sh \"$SANDBOX\""
+  warn "sandbox uid is $_sandbox_uid (expected $COUNTER_UID) — run: ./scripts/chown-sandbox.sh \"$SANDBOX\""
 fi
 
 echo ""

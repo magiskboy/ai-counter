@@ -3,7 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/usr/local/bin:/opt/ai-counter/.venv/bin:${PATH}"
 
-# Container runtime user (match host sandbox ownership: chown -R 1000:1000 $SANDBOX)
+# Container user `counter` — install.sh passes host uid/gid via --build-arg
 ARG COUNTER_UID=1000
 ARG COUNTER_GID=1000
 
@@ -66,7 +66,7 @@ RUN set -eux; \
       fi; \
     fi; \
     if ! id counter >/dev/null 2>&1; then \
-      useradd -m -u "${COUNTER_UID}" -g counter -s /bin/bash counter; \
+      useradd -o -m -u "${COUNTER_UID}" -g counter -s /bin/bash counter; \
     fi; \
     chown -R counter:counter /opt/ai-counter /home/counter
 

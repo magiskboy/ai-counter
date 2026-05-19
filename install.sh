@@ -209,10 +209,18 @@ install_sandbox_skills() {
   }
 }
 
+chown_sandbox_path() {
+  local path="$1"
+  chown -R "${COUNTER_UID}:${COUNTER_GID}" "$path" 2>/dev/null \
+    || sudo chown -R "${COUNTER_UID}:${COUNTER_GID}" "$path"
+}
+
 chown_sandbox() {
-  echo "==> chown sandbox (uid 1000)"
+  echo "==> chown sandbox (uid:gid ${COUNTER_UID}:${COUNTER_GID})"
+  export COUNTER_UID COUNTER_GID
   if ! "$ROOT/scripts/chown-sandbox.sh" "$SANDBOX" 2>/dev/null; then
-    sudo "$ROOT/scripts/chown-sandbox.sh" "$SANDBOX"
+    sudo env COUNTER_UID="$COUNTER_UID" COUNTER_GID="$COUNTER_GID" \
+      "$ROOT/scripts/chown-sandbox.sh" "$SANDBOX"
   fi
 }
 
@@ -225,7 +233,11 @@ build_image() {
   echo "==> Build image $AI_COUNTER_IMAGE ($RUNTIME_BIN)"
 
   for attempt in $(seq 1 "$max_attempts"); do
-    if env AI_COUNTER_RUNTIME="$RUNTIME_BIN" AI_COUNTER_IMAGE="$AI_COUNTER_IMAGE" \
+    if env \
+      AI_COUNTER_RUNTIME="$RUNTIME_BIN" \
+      AI_COUNTER_IMAGE="$AI_COUNTER_IMAGE" \
+      COUNTER_UID="$COUNTER_UID" \
+      COUNTER_GID="$COUNTER_GID" \
       "$ROOT/docker/build.sh"; then
       if image_exists; then
         echo "==> Image ready: $AI_COUNTER_IMAGE"
@@ -310,9 +322,7 @@ setup_z8l_auth() {
   fi
 
   if copy_z8l_auth_to_sandbox; then
-    chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
-      || sudo chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
-      || true
+    chown_sandbox_path "$SANDBOX/.z8l" || true
     if z8l_authenticated; then
       echo "==> z8l: copied host credentials → $SANDBOX/.z8l/cli/"
       return 0
@@ -331,9 +341,7 @@ setup_z8l_auth() {
     return 1
   fi
 
-  chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
-    || sudo chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
-    || true
+  chown_sandbox_path "$SANDBOX/.z8l" || true
 
   if z8l_authenticated; then
     echo "==> z8l: OK ($SANDBOX/.z8l/cli/)"
@@ -501,6 +509,7 @@ EOF
 start_container() {
   echo "==> Start container $AI_COUNTER_CONTAINER_NAME"
   export SANDBOX NAME="$AI_COUNTER_CONTAINER_NAME" IMAGE="$AI_COUNTER_IMAGE"
+  export COUNTER_UID COUNTER_GID
 
   if container_exists; then
     if [[ "$REPLACE_CONTAINER" -eq 1 ]]; then
@@ -550,6 +559,10 @@ if should_reexec_from_clone; then
   export AI_COUNTER_INSTALL_REEXEC=1
   exec /usr/bin/env bash "$ROOT/install.sh" "$@"
 fi
+
+# shellcheck source=scripts/lib/host-ids.sh
+source "$ROOT/scripts/lib/host-ids.sh"
+echo "    counter uid:gid: ${COUNTER_UID}:${COUNTER_GID} (host $(id -un))"
 
 bootstrap_sandbox "$ROOT" "$AI_COUNTER_SANDBOX"
 chown_sandbox

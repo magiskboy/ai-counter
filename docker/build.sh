@@ -4,6 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=scripts/lib/host-ids.sh
+source "$ROOT/scripts/lib/host-ids.sh"
 readonly PLATFORM="${AI_COUNTER_PLATFORM:-linux/amd64}"
 readonly IMAGE="${AI_COUNTER_IMAGE:-ai-counter:latest}"
 
@@ -29,5 +31,12 @@ if [[ -z "$RUNTIME" ]]; then
   fi
 fi
 
-"$RUNTIME" build --platform "$PLATFORM" -f docker/Dockerfile -t "$IMAGE" .
-echo "Built $IMAGE (runtime=$RUNTIME platform=$PLATFORM)"
+echo "Building with counter uid:gid=${COUNTER_UID}:${COUNTER_GID} (host $(id -un 2>/dev/null || echo '?'))"
+"$RUNTIME" build \
+  --platform "$PLATFORM" \
+  --build-arg "COUNTER_UID=${COUNTER_UID}" \
+  --build-arg "COUNTER_GID=${COUNTER_GID}" \
+  -f docker/Dockerfile \
+  -t "$IMAGE" \
+  .
+echo "Built $IMAGE (runtime=$RUNTIME platform=$PLATFORM uid:gid=${COUNTER_UID}:${COUNTER_GID})"

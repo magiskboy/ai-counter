@@ -138,7 +138,7 @@ schedule:
 | # | Nội dung |
 |---|----------|
 | 1 | Mount: `-v "$SANDBOX:/home/counter"` — mọi `exec` dùng `-u counter`. |
-| 2 | Sandbox writable uid **1000**: `./scripts/chown-sandbox.sh "$SANDBOX"`. |
+| 2 | Sandbox ownership: `install.sh` chowns to **host uid:gid**; image built with same ids. |
 | 3 | **z8l auth** chỉ trên host hoặc copy `supabase-auth.json`. |
 | 4 | **Cursor:** `cursor-agent login` trong container (không OAuth z8l trong container). |
 | 5 | SELinux / Podman: [README.podman.md](README.podman.md). |
