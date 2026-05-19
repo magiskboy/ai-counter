@@ -223,10 +223,10 @@ image_exists() {
 build_image() {
   local attempt max_attempts=3
   echo "==> Build image $AI_COUNTER_IMAGE ($RUNTIME_BIN)"
-  export AI_COUNTER_RUNTIME="$RUNTIME_BIN" AI_COUNTER_IMAGE="$AI_COUNTER_IMAGE"
 
   for attempt in $(seq 1 "$max_attempts"); do
-    if "$ROOT/docker/build.sh"; then
+    if env AI_COUNTER_RUNTIME="$RUNTIME_BIN" AI_COUNTER_IMAGE="$AI_COUNTER_IMAGE" \
+      "$ROOT/docker/build.sh"; then
       if image_exists; then
         echo "==> Image ready: $AI_COUNTER_IMAGE"
         return 0
