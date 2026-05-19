@@ -3,6 +3,7 @@
 .specstory
 __pycache__
 *.pyc
+sandbox
 sandbox-test
 *.log
 .env

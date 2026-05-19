@@ -1,0 +1,49 @@
+# Default sandbox config (copied to ~/ai-counter-sandbox by ./install.sh).
+# Add your git repos under projects/ and list them below.
+
+automation:
+  user_messages_per_conversation: 2
+  delay_between_messages_seconds: 20
+  delay_between_conversations_seconds: 45
+
+skills:
+  agent: cursor
+  yes: true
+  default_repo: https://github.com/obra/superpowers
+  global_packages:
+    - repo: https://github.com/obra/superpowers
+      skills:
+        - brainstorming
+
+sandbox:
+  projects_dir: projects
+  projects: []
+  # Example — clone a repo into ~/ai-counter-sandbox/projects/my-app first:
+  # projects:
+  #   - name: my-app
+  #     conversations_per_day: 4
+  #     user_messages_per_conversation: 3
+  #     skills: [systematic-debugging]
+
+cursor:
+  binary: cursor-agent
+  flags:
+    - "-p"
+    - "--trust"
+    - "-f"
+    - "--approve-mcps"
+  timeout_seconds: 900
+  delay_between_sessions: 45
+
+z8l:
+  binary: /usr/local/bin/z8l
+  sync_provider: cursor
+
+# Cron 06:30 Mon–Fri, timezone Asia/Ho_Chi_Minh (fixed in container, not configurable).
+schedule:
+  cron: "30 6 * * 1-5"
+
+# Relative to sandbox HOME; loaded at runtime (not in Docker image).
+prompts:
+  file: ai-counter/prompts/daily.yaml
+  rotate: daily

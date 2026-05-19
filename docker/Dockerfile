@@ -40,9 +40,10 @@ RUN HOME=/root curl -LsSf https://astral.sh/uv/install.sh | sh \
 
 WORKDIR /opt/ai-counter
 
+# Orchestrator code only. Config + prompts live on the mounted sandbox (HOME=/home/counter):
+#   ai-counter/config.yaml, ai-counter/prompts/daily.yaml — edit on host, no image rebuild.
 COPY pyproject.toml README.md ./
 COPY src ./src
-COPY prompts ./prompts
 COPY docker ./docker
 
 RUN chmod 755 /opt/ai-counter/docker/*.sh \

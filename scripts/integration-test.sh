@@ -8,8 +8,15 @@ cd "$ROOT"
 SANDBOX="${SANDBOX:-$ROOT/sandbox-test}"
 
 echo "==> Bootstrap sandbox-test"
-SANDBOX="$SANDBOX" ./sandbox/bootstrap.sh
-./scripts/chown-sandbox.sh "$SANDBOX" 2>/dev/null || true
+AI_COUNTER_SANDBOX="$SANDBOX" ./install.sh --skip-clone --no-start --skip-build --skip-skills
+
+mkdir -p "$SANDBOX/projects/test-app"
+if [[ ! -d "$SANDBOX/projects/test-app/.git" ]]; then
+  echo "# test" > "$SANDBOX/projects/test-app/README.md"
+  git -C "$SANDBOX/projects/test-app" init -q
+  git -C "$SANDBOX/projects/test-app" add README.md
+  git -C "$SANDBOX/projects/test-app" -c user.email="test@local" -c user.name="Test" commit -q -m "init"
+fi
 
 # Minimal config: 1 project, 2 conversations, 2 user messages each
 cat > "$SANDBOX/ai-counter/config.yaml" <<EOF
@@ -21,7 +28,7 @@ automation:
 sandbox:
   projects_dir: projects
   projects:
-    - name: fake-api
+    - name: test-app
       conversations_per_day: 2
 
 cursor:
@@ -35,7 +42,7 @@ z8l:
   sync_provider: cursor
 
 prompts:
-  file: $ROOT/prompts/daily.yaml
+  file: ai-counter/prompts/daily.yaml
   rotate: daily
 EOF
 

@@ -24,13 +24,17 @@ fi
 
 gosu "$COUNTER_USER" mkdir -p "$HOME/ai-counter/logs"
 
-# Sync timezone with host (TZ env, config schedule.timezone, or mounted /etc/localtime)
+# Fixed TZ: Asia/Ho_Chi_Minh (cron + logs)
 # shellcheck source=/opt/ai-counter/docker/setup-timezone.sh
 source /opt/ai-counter/docker/setup-timezone.sh
 
 if [[ ! -f "$HOME/ai-counter/config.yaml" ]]; then
   echo "WARNING: $HOME/ai-counter/config.yaml missing." >&2
-  echo "  Run sandbox/bootstrap.sh on the host and mount the sandbox volume." >&2
+  echo "  Run ./install.sh on the host and mount the sandbox volume." >&2
+fi
+if [[ ! -f "$HOME/ai-counter/prompts/daily.yaml" ]]; then
+  echo "WARNING: $HOME/ai-counter/prompts/daily.yaml missing." >&2
+  echo "  Prompts are read from the mounted sandbox at runtime (not baked into the image)." >&2
 fi
 
 echo "AI-counter container ready."
@@ -44,19 +48,19 @@ echo ""
 echo "First-time credentials (stored under mounted sandbox HOME):"
 echo "  z8l:    HOME=\$SANDBOX ./bin/z8l auth login   # on host (not in container)"
 echo "          or cp ~/.z8l/cli/supabase-auth.json -> \$SANDBOX/.z8l/cli/"
-echo "  cursor: -e CURSOR_API_KEY=... on podman run"
-echo "          or podman exec -u $COUNTER_USER -it ai-counter cursor-agent login"
+echo "  cursor: podman exec -u $COUNTER_USER -it ai-counter cursor-agent login"
 echo "  MCP:    -e CONTEXT7_API_KEY=... (for .cursor/mcp.json)"
+echo "  config/prompts: edit \$SANDBOX/ai-counter/ on host — picked up on next daily run (no rebuild)"
 echo "  See README.md for full setup steps."
 echo ""
 echo "  Verify: podman exec -u $COUNTER_USER ai-counter z8l auth status"
 echo ""
-echo "Schedule: Mon-Fri 06:30 ($TZ, runs as $COUNTER_USER, see docker/crontab)"
+echo "Schedule: Mon-Fri 06:30 Asia/Ho_Chi_Minh (runs as $COUNTER_USER)"
 echo "Manual:   podman exec -u $COUNTER_USER ai-counter /opt/ai-counter/docker/run-daily.sh"
 echo "Dry-run:  podman exec -u $COUNTER_USER ai-counter /opt/ai-counter/docker/run-daily.sh --dry-run"
 echo "Shell:    podman exec -u $COUNTER_USER -it ai-counter bash"
 
-sed "s|^TZ=.*|TZ=${TZ}|" /opt/ai-counter/docker/crontab > /etc/cron.d/ai-counter
+cp /opt/ai-counter/docker/crontab /etc/cron.d/ai-counter
 chmod 0644 /etc/cron.d/ai-counter
 
 exec cron -f

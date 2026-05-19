@@ -64,7 +64,7 @@ class Z8lConfig:
 
 @dataclass
 class PromptsConfig:
-    file: str = "/opt/ai-counter/prompts/daily.yaml"
+    file: str = "ai-counter/prompts/daily.yaml"
     rotate: str = "daily"
 
 
@@ -124,6 +124,11 @@ def home_dir() -> Path:
 def config_path(home: Path | None = None) -> Path:
     root = home or home_dir()
     return root / "ai-counter" / "config.yaml"
+
+
+def resolve_path(home: Path, path: str) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else home / p
 
 
 def _int_or_none(value) -> int | None:
@@ -190,7 +195,7 @@ def load_config(home: Path | None = None) -> AppConfig:
     path = config_path(root)
     if not path.is_file():
         raise FileNotFoundError(
-            f"Missing {path}. Run sandbox/bootstrap.sh and copy config.example.yaml."
+            f"Missing {path}. Run ./install.sh to create the sandbox."
         )
 
     with path.open(encoding="utf-8") as f:
@@ -257,8 +262,12 @@ def load_config(home: Path | None = None) -> AppConfig:
     )
 
     prompts_raw = raw.get("prompts", {})
+    prompts_file = resolve_path(
+        root,
+        str(prompts_raw.get("file", PromptsConfig().file)),
+    )
     prompts = PromptsConfig(
-        file=prompts_raw.get("file", "/opt/ai-counter/prompts/daily.yaml"),
+        file=str(prompts_file),
         rotate=prompts_raw.get("rotate", "daily"),
     )
 

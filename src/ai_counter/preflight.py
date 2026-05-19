@@ -79,8 +79,7 @@ def run_preflight(config: AppConfig, *, dry_run: bool = False) -> PreflightResul
         elif "logged in" not in out.lower():
             result.warnings.append(f"z8l auth status unclear: {out[:200]}")
 
-    if not os.environ.get("CURSOR_API_KEY"):
-        result.warnings.append("CURSOR_API_KEY not set (cursor-agent may use stored login)")
+    # cursor-agent uses login state under HOME/.cursor (cursor-agent login in container)
 
     cursor_bin = _which(config.cursor.binary)
     if cursor_bin is None:
@@ -92,7 +91,10 @@ def run_preflight(config: AppConfig, *, dry_run: bool = False) -> PreflightResul
 
     prompts_path = Path(config.prompts.file)
     if not prompts_path.is_file():
-        result.errors.append(f"prompts file missing: {prompts_path}")
+        result.errors.append(
+            f"prompts file missing: {prompts_path} "
+            "(expected on mounted sandbox, e.g. ai-counter/prompts/daily.yaml — not in image)"
+        )
 
     if not config.projects:
         result.errors.append("no projects configured")

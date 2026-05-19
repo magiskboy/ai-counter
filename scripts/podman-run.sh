@@ -1,46 +1,37 @@
 #!/usr/bin/env bash
-# Start ai-counter container with host timezone sync.
+# Start ai-counter container (Podman or Docker).
 set -euo pipefail
 
+readonly AI_COUNTER_TZ="Asia/Ho_Chi_Minh"
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SANDBOX="${SANDBOX:-$HOME/ai-counter-sandbox}"
-NAME="${NAME:-ai-counter}"
-IMAGE="${IMAGE:-ai-counter:latest}"
-
-if [[ -z "${TZ:-}" ]]; then
-  if command -v timedatectl >/dev/null 2>&1; then
-    TZ="$(timedatectl show -pTimezone --value 2>/dev/null || true)"
-  fi
-  if [[ -z "${TZ:-}" ]] && [[ -f /etc/timezone ]]; then
-    TZ="$(tr -d '[:space:]' </etc/timezone)"
-  fi
-  TZ="${TZ:-UTC}"
-fi
-export TZ
-
-RUN_ARGS=(
-  -d
-  --name "$NAME"
-  --userns=keep-id
-  --restart unless-stopped
-  -e "TZ=$TZ"
-  -v "$SANDBOX:/home/counter:Z"
-  -v /etc/localtime:/etc/localtime:ro
-)
-
-if [[ -f /etc/timezone ]]; then
-  RUN_ARGS+=(-v /etc/timezone:/etc/timezone:ro)
-fi
-
-[[ -n "${CURSOR_API_KEY:-}" ]] && RUN_ARGS+=(-e CURSOR_API_KEY)
-[[ -n "${CONTEXT7_API_KEY:-}" ]] && RUN_ARGS+=(-e CONTEXT7_API_KEY)
-
-echo "Starting $NAME (TZ=$TZ, sandbox=$SANDBOX)"
+# shellcheck source=scripts/lib/load-env.sh
+source "$ROOT/scripts/lib/load-env.sh"
+SANDBOX="$(mkdir -p "$SANDBOX" && cd "$SANDBOX" && pwd)"
 
 if command -v podman >/dev/null 2>&1; then
-  podman run "${RUN_ARGS[@]}" "$IMAGE"
+  RUNTIME=podman
+  RUN_ARGS=(
+    -d
+    --name "$NAME"
+    --userns=keep-id
+    --restart unless-stopped
+    -e "TZ=$AI_COUNTER_TZ"
+    -v "$SANDBOX:/home/counter:Z"
+  )
 else
-  docker run "${RUN_ARGS[@]}" "$IMAGE"
+  RUNTIME=docker
+  RUN_ARGS=(
+    -d
+    --name "$NAME"
+    --restart unless-stopped
+    -e "TZ=$AI_COUNTER_TZ"
+    -v "$SANDBOX:/home/counter"
+  )
 fi
 
-echo "Verify time: podman exec -u counter $NAME date"
+[[ -n "${CONTEXT7_API_KEY:-}" ]] && RUN_ARGS+=(-e CONTEXT7_API_KEY)
+
+echo "Starting $NAME with $RUNTIME (TZ=$AI_COUNTER_TZ, sandbox=$SANDBOX)"
+"$RUNTIME" run "${RUN_ARGS[@]}" "$IMAGE"
+echo "Verify: $RUNTIME exec -u counter $NAME date"

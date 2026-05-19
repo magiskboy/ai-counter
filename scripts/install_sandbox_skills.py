@@ -50,7 +50,7 @@ def main() -> int:
     parser.add_argument(
         "--config",
         default=None,
-        help="Path to skills.yaml (legacy) or ai-counter/config.yaml",
+        help="Path to ai-counter/config.yaml",
     )
     args = parser.parse_args()
 
@@ -65,12 +65,7 @@ def main() -> int:
     config_path = Path(args.config) if args.config else None
 
     if config_path is None:
-        sandbox_config = sandbox / "ai-counter" / "config.yaml"
-        legacy = root / "sandbox" / "skills.yaml"
-        if sandbox_config.is_file():
-            config_path = sandbox_config
-        else:
-            config_path = legacy
+        config_path = sandbox / "ai-counter" / "config.yaml"
 
     if not config_path.is_file():
         print(f"ERROR: missing {config_path}", file=sys.stderr)
