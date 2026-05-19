@@ -54,12 +54,13 @@ if command -v docker >/dev/null 2>&1; then
   if [[ ! -x bin/z8l ]]; then
     echo "Skip Docker build: bin/z8l missing (run ./scripts/vendor-z8l.sh)" >&2
   else
-    docker build -f docker/Dockerfile -t ai-counter:latest .
+    docker build --platform linux/amd64 -f docker/Dockerfile -t ai-counter:latest .
   fi
 
   if docker image inspect ai-counter:latest >/dev/null 2>&1; then
     echo "==> Docker dry-run"
     docker run --rm \
+      --platform linux/amd64 \
       --user counter \
       --entrypoint /opt/ai-counter/docker/run-daily.sh \
       -v "$SANDBOX:/home/counter" \

@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+readonly PLATFORM="${AI_COUNTER_PLATFORM:-linux/amd64}"
 
 if [[ ! -x bin/z8l ]]; then
   echo "Missing bin/z8l. Run: ./scripts/vendor-z8l.sh" >&2
@@ -11,8 +12,8 @@ if [[ ! -x bin/z8l ]]; then
 fi
 
 if command -v podman >/dev/null 2>&1; then
-  podman build -f docker/Dockerfile -t ai-counter:latest .
+  podman build --platform "$PLATFORM" -f docker/Dockerfile -t ai-counter:latest .
 else
-  docker build -f docker/Dockerfile -t ai-counter:latest .
+  docker build --platform "$PLATFORM" -f docker/Dockerfile -t ai-counter:latest .
 fi
-echo "Built ai-counter:latest"
+echo "Built ai-counter:latest (platform=$PLATFORM)"
