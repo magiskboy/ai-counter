@@ -1,5 +1,5 @@
 # Copy to $SANDBOX/ai-counter/config.yaml after bootstrap.
-# Paths below are relative to HOME (/home/counter in the container, user `counter`).
+# Paths below are relative to HOME (/home/counter in the user `counter`).
 
 # Global automation targets (each project can override).
 automation:
@@ -8,14 +8,33 @@ automation:
   # If omitted, uses cursor.delay_between_sessions
   delay_between_conversations_seconds: 45
 
+# Agent skills: installed via `npx skills add <repo> --skill <name> -a cursor -y`
+# See: npx skills --help  |  https://github.com/vercel-labs/agent-skills
+skills:
+  agent: cursor
+  yes: true
+  default_repo: https://github.com/obra/superpowers
+  # Installed once into $HOME/.agents/skills/ (-g) for all projects
+  global_packages:
+    - repo: https://github.com/obra/superpowers
+      skills:
+        - brainstorming
+
 sandbox:
   projects_dir: projects
   projects:
     - name: fake-api
       conversations_per_day: 4
       user_messages_per_conversation: 3
+      skills:
+        - systematic-debugging
+        - writing-plans
     - name: fake-web
       conversations_per_day: 3
+      skills:
+        - repo: https://github.com/obra/superpowers
+          names: [using-superpowers]
+          global: true
     - name: fake-lib
       conversations_per_day: 3
 

@@ -90,6 +90,26 @@ sandbox:
 
 `follow_ups` trong `prompts/daily.yaml` (hoặc `default_follow_ups`) là nội dung các user message tiếp theo trong cùng conversation. `sessions_per_day` vẫn được chấp nhận như alias của `conversations_per_day`.
 
+**Agent skills theo project** (cài bằng `npx skills add`, xem `npx skills --help`):
+
+```yaml
+skills:
+  default_repo: https://github.com/obra/superpowers
+  global_packages:
+    - repo: https://github.com/obra/superpowers
+      skills: [brainstorming]
+sandbox:
+  projects:
+    - name: fake-api
+      skills:
+        - systematic-debugging          # shorthand (dùng default_repo)
+        - repo: https://github.com/obra/superpowers
+          names: [writing-plans]
+          global: true                 # -g → $HOME/.agents/skills/
+```
+
+Cài thủ công: `SANDBOX=~/ai-counter-sandbox ./scripts/install-sandbox-skills.sh`
+
 ---
 
 ## Lưu ý

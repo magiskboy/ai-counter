@@ -8,6 +8,23 @@ import yaml
 
 
 @dataclass
+class SkillPackage:
+    repo: str
+    names: list[str]
+    global_install: bool | None = None
+
+
+@dataclass
+class SkillsConfig:
+    """Defaults for `npx skills add` (https://github.com/vercel-labs/agent-skills)."""
+
+    agent: str = "cursor"
+    yes: bool = True
+    default_repo: str | None = None
+    global_packages: list[SkillPackage] = field(default_factory=list)
+
+
+@dataclass
 class AutomationConfig:
     """Global automation targets (per-project can override)."""
 
@@ -21,6 +38,7 @@ class ProjectConfig:
     name: str
     conversations_per_day: int = 4
     user_messages_per_conversation: int | None = None
+    skill_packages: list[SkillPackage] = field(default_factory=list)
 
     @property
     def sessions_per_day(self) -> int:
@@ -56,6 +74,7 @@ class AppConfig:
     projects_dir: Path
     projects: list[ProjectConfig]
     automation: AutomationConfig
+    skills: SkillsConfig
     cursor: CursorConfig
     z8l: Z8lConfig
     prompts: PromptsConfig
@@ -84,6 +103,19 @@ class AppConfig:
         """Backward-compatible alias."""
         return self.total_conversations_per_day
 
+    def project_skill_packages(self, project: ProjectConfig) -> list[SkillPackage]:
+        """Per-project skill packages only (not including global_packages)."""
+        return list(project.skill_packages)
+
+    def project_skill_names(self, project: ProjectConfig) -> list[str]:
+        """Skill names visible to this project (global + per-project)."""
+        names: list[str] = []
+        for pkg in [*self.skills.global_packages, *project.skill_packages]:
+            for name in pkg.names:
+                if name not in names:
+                    names.append(name)
+        return names
+
 
 def home_dir() -> Path:
     return Path(os.environ.get("HOME", "/home/counter")).resolve()
@@ -100,6 +132,59 @@ def _int_or_none(value) -> int | None:
     return int(value)
 
 
+def _parse_skill_packages(
+    items,
+    *,
+    default_repo: str | None,
+    default_global: bool | None,
+) -> list[SkillPackage]:
+    if not items:
+        return []
+
+    packages: list[SkillPackage] = []
+    for item in items:
+        if isinstance(item, str):
+            if not default_repo:
+                raise ValueError(
+                    f"skill {item!r} needs skills.default_repo or explicit repo:"
+                )
+            packages.append(
+                SkillPackage(
+                    repo=default_repo,
+                    names=[item],
+                    global_install=default_global,
+                )
+            )
+            continue
+
+        if not isinstance(item, dict):
+            continue
+
+        repo = item.get("repo") or default_repo
+        if not repo:
+            raise ValueError("each skill package needs repo: or skills.default_repo")
+
+        names = item.get("names") or item.get("skills") or []
+        if isinstance(names, str):
+            names = [names]
+        names = [str(n) for n in names if str(n).strip()]
+        if not names:
+            continue
+
+        global_install = item.get("global")
+        if global_install is None:
+            global_install = default_global
+
+        packages.append(
+            SkillPackage(
+                repo=str(repo),
+                names=names,
+                global_install=global_install,
+            )
+        )
+    return packages
+
+
 def load_config(home: Path | None = None) -> AppConfig:
     root = home or home_dir()
     path = config_path(root)
@@ -110,6 +195,19 @@ def load_config(home: Path | None = None) -> AppConfig:
 
     with path.open(encoding="utf-8") as f:
         raw = yaml.safe_load(f) or {}
+
+    skills_raw = raw.get("skills", {})
+    skills_default_repo = skills_raw.get("default_repo")
+    skills = SkillsConfig(
+        agent=str(skills_raw.get("agent", "cursor")),
+        yes=bool(skills_raw.get("yes", True)),
+        default_repo=skills_default_repo,
+        global_packages=_parse_skill_packages(
+            skills_raw.get("global_packages") or skills_raw.get("packages", []),
+            default_repo=skills_default_repo,
+            default_global=True,
+        ),
+    )
 
     automation_raw = raw.get("automation", {})
     automation = AutomationConfig(
@@ -130,11 +228,17 @@ def load_config(home: Path | None = None) -> AppConfig:
     for p in sandbox.get("projects", []):
         cpd = p.get("conversations_per_day", p.get("sessions_per_day", 4))
         um = p.get("user_messages_per_conversation")
+        project_skills = _parse_skill_packages(
+            p.get("skills", []),
+            default_repo=skills_default_repo,
+            default_global=p.get("skills_global", False),
+        )
         projects.append(
             ProjectConfig(
                 name=p["name"],
                 conversations_per_day=int(cpd),
                 user_messages_per_conversation=_int_or_none(um),
+                skill_packages=project_skills,
             )
         )
 
@@ -163,6 +267,7 @@ def load_config(home: Path | None = None) -> AppConfig:
         projects_dir=projects_dir,
         projects=projects,
         automation=automation,
+        skills=skills,
         cursor=cursor,
         z8l=z8l,
         prompts=prompts,

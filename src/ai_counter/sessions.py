@@ -10,6 +10,7 @@ from pathlib import Path
 import yaml
 
 from ai_counter.config import AppConfig, ProjectConfig
+from ai_counter.skills import skill_context_prefix
 
 DEFAULT_FOLLOW_UPS = [
     (
@@ -409,6 +410,12 @@ def run_project_sessions(
     results: list[SessionResult] = []
     conversations = config.conversations_per_day(project)
     user_messages = config.user_messages_per_conversation(project)
+    skill_prefix = skill_context_prefix(config, project)
+
+    def _with_skill_context(msgs: list[str]) -> list[str]:
+        if not skill_prefix or not msgs:
+            return msgs
+        return [skill_prefix + msgs[0], *msgs[1:]]
 
     if dry_run:
         selected = select_prompts(
@@ -417,10 +424,12 @@ def run_project_sessions(
             rotate=config.prompts.rotate,
         )
         for i, entry in enumerate(selected):
-            msgs = build_user_messages(
-                entry,
-                count=user_messages,
-                default_follow_ups=prompts.default_follow_ups,
+            msgs = _with_skill_context(
+                build_user_messages(
+                    entry,
+                    count=user_messages,
+                    default_follow_ups=prompts.default_follow_ups,
+                )
             )
             log_fn(
                 f"[dry-run] {project.name} conversation {i + 1}/{conversations}: "
@@ -453,10 +462,12 @@ def run_project_sessions(
     delay_conv = config.delay_between_conversations()
 
     for i, entry in enumerate(selected):
-        msgs = build_user_messages(
-            entry,
-            count=user_messages,
-            default_follow_ups=prompts.default_follow_ups,
+        msgs = _with_skill_context(
+            build_user_messages(
+                entry,
+                count=user_messages,
+                default_follow_ups=prompts.default_follow_ups,
+            )
         )
         log_fn(
             f"[{project.name}] conversation {i + 1}/{len(selected)}: "

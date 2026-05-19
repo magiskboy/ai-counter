@@ -114,5 +114,21 @@ def run_preflight(config: AppConfig, *, dry_run: bool = False) -> PreflightResul
                 f"conversations_per_day must be >= 1 for {project.name}"
             )
 
+    if config.skills.global_packages or any(p.skill_packages for p in config.projects):
+        if _which("npx") is None:
+            msg = "npx not found — required to install agent skills (Node.js)"
+            if dry_run:
+                result.warnings.append(msg)
+            else:
+                result.warnings.append(msg)
+
+    for project in config.projects:
+        for pkg in project.skill_packages:
+            if not pkg.repo:
+                result.errors.append(
+                    f"project {project.name}: skill package missing repo "
+                    "(set skills.default_repo or repo: per package)"
+                )
+
     result.ok = len(result.errors) == 0
     return result

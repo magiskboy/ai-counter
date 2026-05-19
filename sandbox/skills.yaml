@@ -1,4 +1,4 @@
-# Agent skills installed into $SANDBOX via scripts/install-sandbox-skills.sh
+# Legacy bootstrap skills list. Prefer configuring skills in ai-counter/config.yaml.
 # Non-interactive: npx skills add <repo> --skill <name> -g -y -a cursor
 
 packages:

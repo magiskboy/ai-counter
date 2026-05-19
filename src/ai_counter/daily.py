@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ai_counter.config import load_config
 from ai_counter.preflight import run_preflight
+from ai_counter.skills import ensure_global_skills, ensure_project_skills
 from ai_counter.sessions import (
     load_prompts,
     record_run,
@@ -49,6 +50,10 @@ def run_daily(*, dry_run: bool = False) -> int:
         return 1
     log("preflight ok")
 
+    global_skills = ensure_global_skills(config, dry_run=dry_run, log_fn=log)
+    if global_skills.failed:
+        log(f"warning: global skill install failures: {global_skills.failed}")
+
     prompts = load_prompts(Path(config.prompts.file))
     log(
         f"loaded {len(prompts.sessions)} prompts from {config.prompts.file} "
@@ -61,8 +66,18 @@ def run_daily(*, dry_run: bool = False) -> int:
     for project in config.projects:
         conv = config.conversations_per_day(project)
         um = config.user_messages_per_conversation(project)
-        log(f"--- project: {project.name} ({conv} conversations × {um} user messages) ---")
+        skill_names = config.project_skill_names(project)
+        skills_note = f", skills: {skill_names}" if skill_names else ""
+        log(
+            f"--- project: {project.name} "
+            f"({conv} conversations × {um} user messages{skills_note}) ---"
+        )
         proj_path = config.projects_dir / project.name
+        proj_skills = ensure_project_skills(
+            config, project, dry_run=dry_run, log_fn=log
+        )
+        if proj_skills.failed:
+            log(f"warning: skill install failures for {project.name}: {proj_skills.failed}")
         results = run_project_sessions(
             config,
             project,
