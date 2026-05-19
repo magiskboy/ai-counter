@@ -23,6 +23,7 @@ DO_START=1
 SKIP_CLONE=0
 SKIP_SKILLS=0
 SKIP_BUILD=0
+SKIP_AUTH=0
 REPLACE_CONTAINER=1
 RUNTIME="auto"
 
@@ -41,6 +42,7 @@ Options:
   --skip-clone     use existing ~/.ai-counter checkout
   --skip-build     skip image build
   --skip-skills    skip npx agent skills
+  --skip-auth      skip z8l + cursor-agent login after container start
   --runtime auto|docker|podman
   -h, --help
 
@@ -54,6 +56,7 @@ while [[ $# -gt 0 ]]; do
     --skip-clone) SKIP_CLONE=1; shift ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --skip-skills) SKIP_SKILLS=1; shift ;;
+    --skip-auth) SKIP_AUTH=1; shift ;;
     --runtime)
       RUNTIME="${2:?--runtime requires docker|podman|auto}"
       shift 2
@@ -76,11 +79,40 @@ need_cmd() {
 
 resolve_local_root() {
   local script="${BASH_SOURCE[0]:-}"
-  [[ -n "$script" && -f "$script" ]] || return 1
+  [[ -n "$script" && "$script" != "-" && -f "$script" ]] || return 1
   local dir
   dir="$(cd "$(dirname "$script")" && pwd)"
-  [[ -x "$dir/bin/z8l" && -f "$dir/docker/build.sh" ]] || return 1
+  [[ -f "$dir/bin/z8l" && -f "$dir/docker/build.sh" ]] || return 1
   printf '%s\n' "$dir"
+}
+
+# curl | bash runs from stdin — re-exec from cloned repo so build/scripts use a real path.
+should_reexec_from_clone() {
+  [[ "${AI_COUNTER_INSTALL_REEXEC:-}" == 1 ]] && return 1
+  [[ -n "${BASH_SOURCE[0]:-}" && "${BASH_SOURCE[0]}" != "-" && -f "${BASH_SOURCE[0]}" ]] && return 1
+  return 0
+}
+
+ensure_repo_checkout() {
+  local root="$1"
+  local missing=0
+  for rel in bin/z8l docker/build.sh docker/Dockerfile; do
+    if [[ ! -e "$root/$rel" ]]; then
+      echo "ERROR: incomplete checkout, missing $rel" >&2
+      missing=1
+    fi
+  done
+  if [[ "$missing" -eq 1 ]]; then
+    echo "==> Repair checkout in $root"
+    git -C "$root" checkout -f HEAD
+  fi
+  if [[ -f "$root/bin/z8l" ]]; then
+    chmod +x "$root/bin/z8l"
+  fi
+  [[ -x "$root/bin/z8l" ]] || {
+    echo "ERROR: $root/bin/z8l is missing or not executable" >&2
+    exit 1
+  }
 }
 
 clone_or_update_repo() {
@@ -159,17 +191,22 @@ bootstrap_sandbox() {
     cp "${HOME}/.z8l/cli/config.toml" "$box/.z8l/cli/config.toml"
   fi
 
-  if [[ "$SKIP_SKILLS" -eq 1 ]]; then
-    echo "    skipped agent skills (--skip-skills)"
-  elif command -v npx >/dev/null 2>&1; then
-    SANDBOX="$box" "$repo/scripts/install-sandbox-skills.sh" "$box" || {
-      echo "WARN: skill install failed — rerun: SANDBOX=$box $repo/scripts/install-sandbox-skills.sh" >&2
-    }
-  else
-    echo "    skipped agent skills (npx not found)"
-  fi
-
   SANDBOX="$box"
+}
+
+install_sandbox_skills() {
+  if [[ "$SKIP_SKILLS" -eq 1 ]]; then
+    echo "==> Skipped agent skills (--skip-skills)"
+    return 0
+  fi
+  if ! command -v npx >/dev/null 2>&1; then
+    echo "==> Skipped agent skills (npx not found)"
+    return 0
+  fi
+  echo "==> Install agent skills (after image build)"
+  SANDBOX="$SANDBOX" "$ROOT/scripts/install-sandbox-skills.sh" "$SANDBOX" || {
+    echo "WARN: skill install failed — rerun: SANDBOX=$SANDBOX $ROOT/scripts/install-sandbox-skills.sh" >&2
+  }
 }
 
 chown_sandbox() {
@@ -179,14 +216,140 @@ chown_sandbox() {
   fi
 }
 
+image_exists() {
+  "$RUNTIME_BIN" image exists "$AI_COUNTER_IMAGE" >/dev/null 2>&1
+}
+
 build_image() {
-  echo "==> Build image $AI_COUNTER_IMAGE"
-  "$ROOT/docker/build.sh"
+  local attempt max_attempts=3
+  echo "==> Build image $AI_COUNTER_IMAGE ($RUNTIME_BIN)"
+  export AI_COUNTER_RUNTIME="$RUNTIME_BIN" AI_COUNTER_IMAGE="$AI_COUNTER_IMAGE"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    if "$ROOT/docker/build.sh"; then
+      if image_exists; then
+        echo "==> Image ready: $AI_COUNTER_IMAGE"
+        return 0
+      fi
+      echo "WARN: build finished but image not listed yet (attempt $attempt/$max_attempts)" >&2
+    else
+      echo "WARN: build failed (attempt $attempt/$max_attempts)" >&2
+    fi
+    [[ "$attempt" -lt "$max_attempts" ]] && sleep 2
+  done
+
+  echo "ERROR: failed to build $AI_COUNTER_IMAGE after $max_attempts attempts" >&2
+  exit 1
 }
 
 z8l_authenticated() {
   [[ -f "$SANDBOX/.z8l/cli/supabase-auth.json" ]] && return 0
   HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null | grep -qi 'logged in'
+}
+
+cursor_authenticated() {
+  container_running || return 1
+  local out
+  out="$("$RUNTIME_BIN" exec -u counter "$AI_COUNTER_CONTAINER_NAME" \
+    cursor-agent status 2>/dev/null)" || return 1
+  [[ "$out" != *"Not logged in"* ]] && echo "$out" | grep -qi 'logged in'
+}
+
+# Copy z8l session from host ~/.z8l into mounted sandbox HOME.
+copy_z8l_auth_to_sandbox() {
+  local host_cli="${HOME}/.z8l/cli"
+  local copied=0
+  mkdir -p "$SANDBOX/.z8l/cli"
+  for f in supabase-auth.json auth.json config.toml; do
+    if [[ -f "$host_cli/$f" ]]; then
+      cp -a "$host_cli/$f" "$SANDBOX/.z8l/cli/"
+      copied=1
+    fi
+  done
+  [[ "$copied" -eq 1 ]]
+}
+
+setup_z8l_auth() {
+  if z8l_authenticated; then
+    echo "==> z8l: đã đăng nhập (sandbox)"
+    return 0
+  fi
+
+  if copy_z8l_auth_to_sandbox; then
+    chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
+      || sudo chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
+      || true
+    if z8l_authenticated; then
+      echo "==> z8l: đã copy credential từ host → $SANDBOX/.z8l/cli/"
+      return 0
+    fi
+  fi
+
+  if [[ ! -t 0 ]]; then
+    echo "WARN: z8l chưa login — cần TTY. Chạy trên host:" >&2
+    echo "       $ROOT/bin/z8l auth login" >&2
+    echo "       rồi: cp ~/.z8l/cli/supabase-auth.json $SANDBOX/.z8l/cli/" >&2
+    return 1
+  fi
+
+  echo "==> z8l: đăng nhập trên host (browser, HOME=$HOME)..."
+  if ! "$ROOT/bin/z8l" auth login; then
+    echo "WARN: z8l auth login thất bại" >&2
+    return 1
+  fi
+
+  if ! copy_z8l_auth_to_sandbox; then
+    echo "WARN: không tìm thấy ~/.z8l/cli/supabase-auth.json sau login" >&2
+    return 1
+  fi
+
+  chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
+    || sudo chown -R 1000:1000 "$SANDBOX/.z8l" 2>/dev/null \
+    || true
+
+  if z8l_authenticated; then
+    echo "==> z8l: OK (credential trong $SANDBOX/.z8l/cli/)"
+    return 0
+  fi
+
+  echo "WARN: z8l auth status vẫn chưa logged in trong sandbox" >&2
+  return 1
+}
+
+setup_cursor_auth() {
+  if ! container_running; then
+    echo "WARN: container chưa chạy — bỏ qua cursor-agent login" >&2
+    return 1
+  fi
+
+  if cursor_authenticated; then
+    echo "==> cursor-agent: đã đăng nhập"
+    return 0
+  fi
+
+  if [[ ! -t 0 ]]; then
+    echo "WARN: cursor-agent login cần TTY (-it). Chạy:" >&2
+    echo "       $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login" >&2
+    return 1
+  fi
+
+  echo "==> cursor-agent: đăng nhập trong container (browser)..."
+  if "$RUNTIME_BIN" exec -u counter -it "$AI_COUNTER_CONTAINER_NAME" cursor-agent login; then
+    if cursor_authenticated; then
+      echo "==> cursor-agent: OK"
+      return 0
+    fi
+  fi
+
+  echo "WARN: cursor-agent chưa authenticated — chạy lại lệnh exec ở trên" >&2
+  return 1
+}
+
+setup_credentials() {
+  echo ""
+  echo "==> Thiết lập credential (z8l trên host → sandbox, cursor trong container)"
+  setup_z8l_auth || true
+  setup_cursor_auth || true
 }
 
 container_exists() {
@@ -204,8 +367,9 @@ _configured_projects() {
 
 print_next_steps() {
   local z8l_ok=$1
-  local container_up=$2
-  local dry_run_ok=$3
+  local cursor_ok=$2
+  local container_up=$3
+  local dry_run_ok=$4
 
   echo ""
   echo "════════════════════════════════════════════════════════════"
@@ -226,35 +390,32 @@ print_next_steps() {
   fi
   [[ "$SKIP_SKILLS" -eq 1 ]] && echo "  • Skills:     chưa cài (--skip-skills)"
   echo ""
-  echo "── Một lần (auth) ───────────────────────────────────────────"
-
-  local n=1
-  if [[ "$z8l_ok" -eq 0 ]]; then
+  echo "── Auth ─────────────────────────────────────────────────────"
+  if [[ "$z8l_ok" -eq 1 ]]; then
+    echo "  ✓ z8l (sandbox: $SANDBOX/.z8l/cli/)"
+  else
     cat <<EOF
-  $n) z8l (trên HOST — cần browser):
-       HOME=$SANDBOX $ROOT/bin/z8l auth login
+  • z8l (host → copy vào sandbox):
+      $ROOT/bin/z8l auth login
+      cp ~/.z8l/cli/supabase-auth.json $SANDBOX/.z8l/cli/
 
 EOF
-    n=$((n + 1))
-  else
-    echo "  ✓ z8l đã đăng nhập"
+  fi
+
+  if [[ "$cursor_ok" -eq 1 ]]; then
+    echo "  ✓ cursor-agent (trong container)"
+  elif [[ "$container_up" -eq 1 ]]; then
+    echo "  • cursor-agent:"
+    echo "      $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login"
   fi
 
   if [[ "$container_up" -eq 0 ]]; then
     cat <<EOF
-  $n) Khởi động container:
-       $ROOT/install.sh
-       # hoặc: $ROOT/scripts/podman-run.sh
+  • Khởi động container:
+      $ROOT/install.sh
 
 EOF
-    n=$((n + 1))
   fi
-
-  cat <<EOF
-  $n) Cursor (trong container):
-       $RUNTIME_BIN exec -u counter -it $AI_COUNTER_CONTAINER_NAME cursor-agent login
-
-EOF
 
   echo "── Cấu hình project ─────────────────────────────────────────"
   if _configured_projects; then
@@ -349,33 +510,28 @@ if ROOT="$(resolve_local_root 2>/dev/null)"; then
   echo "==> Using repo: $ROOT"
 elif [[ "$SKIP_CLONE" -eq 1 ]]; then
   ROOT="$AI_COUNTER_INSTALL_DIR"
-  [[ -x "$ROOT/bin/z8l" ]] || {
-    echo "ERROR: incomplete checkout at $ROOT" >&2
-    exit 1
-  }
 else
   clone_or_update_repo
   ROOT="$AI_COUNTER_INSTALL_DIR"
 fi
 
-[[ -x "$ROOT/bin/z8l" ]] || {
-  echo "ERROR: missing $ROOT/bin/z8l — run ./scripts/vendor-z8l.sh" >&2
-  exit 1
-}
+ensure_repo_checkout "$ROOT"
+
+if should_reexec_from_clone; then
+  echo "==> Re-run install from $ROOT/install.sh (curl | bash)"
+  export AI_COUNTER_INSTALL_REEXEC=1
+  exec /usr/bin/env bash "$ROOT/install.sh" "$@"
+fi
 
 bootstrap_sandbox "$ROOT" "$AI_COUNTER_SANDBOX"
 chown_sandbox
 
 [[ "$SKIP_BUILD" -eq 0 ]] && build_image || echo "==> Skipped image build"
 
-z8l_ok=0
-if z8l_authenticated; then
-  z8l_ok=1
-  echo "==> z8l: authenticated"
-else
-  echo "==> z8l: chưa login (xem hướng dẫn cuối script)"
-fi
+install_sandbox_skills
 
+z8l_ok=0
+cursor_ok=0
 container_up=0
 dry_run_ok=0
 
@@ -383,6 +539,13 @@ if [[ "$DO_START" -eq 1 ]]; then
   start_container
   if container_running; then
     container_up=1
+    if [[ "$SKIP_AUTH" -eq 0 ]]; then
+      setup_credentials
+    else
+      echo "==> Skipped credential setup (--skip-auth)"
+    fi
+    z8l_authenticated && z8l_ok=1
+    cursor_authenticated && cursor_ok=1
     if [[ "$z8l_ok" -eq 1 ]] && _configured_projects; then
       echo "==> Verify dry-run"
       if "$RUNTIME_BIN" exec -u counter "$AI_COUNTER_CONTAINER_NAME" \
@@ -395,4 +558,4 @@ if [[ "$DO_START" -eq 1 ]]; then
   fi
 fi
 
-print_next_steps "$z8l_ok" "$container_up" "$dry_run_ok"
+print_next_steps "$z8l_ok" "$cursor_ok" "$container_up" "$dry_run_ok"
