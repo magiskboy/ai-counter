@@ -1,4 +1,4 @@
-# Runtime prompts (mounted sandbox: ~/ai-counter-sandbox/ai-counter/prompts/daily.yaml).
+# Runtime prompts (mounted sandbox: ~/.sandbox-ai-counter/ai-counter/prompts/daily.yaml).
 # Not in the Docker image — edit here and re-run daily; no rebuild.
 # Rotated daily by orchestrator. Each entry = one conversation (initial prompt + optional follow_ups).
 # Extra user messages use follow_ups first, then default_follow_ups, until user_messages_per_conversation is met.

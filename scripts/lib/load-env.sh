@@ -12,6 +12,6 @@ if [[ -z "${_AI_COUNTER_ENV_LOADED:-}" ]]; then
   fi
 fi
 
-export SANDBOX="${SANDBOX:-$HOME/ai-counter-sandbox}"
+export SANDBOX="${SANDBOX:-$HOME/.sandbox-ai-counter}"
 export NAME="${NAME:-ai-counter}"
 export IMAGE="${IMAGE:-ai-counter:latest}"

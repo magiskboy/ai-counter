@@ -1,4 +1,4 @@
-# Default sandbox config (copied to ~/ai-counter-sandbox by ./install.sh).
+# Default sandbox config (copied to ~/.sandbox-ai-counter by ./install.sh).
 # Add your git repos under projects/ and list them below.
 
 automation:
@@ -18,7 +18,7 @@ skills:
 sandbox:
   projects_dir: projects
   projects: []
-  # Example — clone a repo into ~/ai-counter-sandbox/projects/my-app first:
+  # Example — clone a repo into ~/.sandbox-ai-counter/projects/my-app first:
   # projects:
   #   - name: my-app
   #     conversations_per_day: 4
