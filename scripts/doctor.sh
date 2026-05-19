@@ -7,6 +7,8 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "$ROOT/scripts/lib/load-env.sh"
 # shellcheck source=scripts/lib/host-ids.sh
 source "$ROOT/scripts/lib/host-ids.sh"
+# shellcheck source=scripts/lib/image.sh
+source "$ROOT/scripts/lib/image.sh"
 
 SANDBOX="$(mkdir -p "$SANDBOX" 2>/dev/null && cd "$SANDBOX" && pwd)" || SANDBOX="${SANDBOX:-}"
 
@@ -119,7 +121,7 @@ fi
 
 echo ""
 echo "Image & container"
-if [[ -n "$RUNTIME_BIN" ]] && "$RUNTIME_BIN" image exists "$IMAGE" >/dev/null 2>&1; then
+if [[ -n "$RUNTIME_BIN" ]] && runtime_image_exists "$RUNTIME_BIN" "$IMAGE"; then
   ok "image $IMAGE"
 else
   fail "image $IMAGE not found — ./install.sh"

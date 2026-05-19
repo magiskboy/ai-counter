@@ -225,7 +225,7 @@ chown_sandbox() {
 }
 
 image_exists() {
-  "$RUNTIME_BIN" image exists "$AI_COUNTER_IMAGE" >/dev/null 2>&1
+  runtime_image_exists "$RUNTIME_BIN" "$AI_COUNTER_IMAGE"
 }
 
 build_image() {
@@ -243,14 +243,20 @@ build_image() {
         echo "==> Image ready: $AI_COUNTER_IMAGE"
         return 0
       fi
-      echo "WARN: build finished but image not listed yet (attempt $attempt/$max_attempts)" >&2
+      echo "WARN: build OK but image not visible yet (attempt $attempt/$max_attempts)" >&2
     else
       echo "WARN: build failed (attempt $attempt/$max_attempts)" >&2
     fi
     [[ "$attempt" -lt "$max_attempts" ]] && sleep 2
   done
 
-  echo "ERROR: failed to build $AI_COUNTER_IMAGE after $max_attempts attempts" >&2
+  if image_exists; then
+    echo "==> Image ready: $AI_COUNTER_IMAGE"
+    return 0
+  fi
+
+  echo "ERROR: failed to build or find $AI_COUNTER_IMAGE after $max_attempts attempts" >&2
+  echo "       Check: $RUNTIME_BIN images $AI_COUNTER_IMAGE" >&2
   exit 1
 }
 
@@ -562,6 +568,8 @@ fi
 
 # shellcheck source=scripts/lib/host-ids.sh
 source "$ROOT/scripts/lib/host-ids.sh"
+# shellcheck source=scripts/lib/image.sh
+source "$ROOT/scripts/lib/image.sh"
 echo "    counter uid:gid: ${COUNTER_UID}:${COUNTER_GID} (host $(id -un))"
 
 bootstrap_sandbox "$ROOT" "$AI_COUNTER_SANDBOX"
