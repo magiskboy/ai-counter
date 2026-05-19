@@ -262,8 +262,8 @@ build_image() {
 
 # Avoid false positive: "Not logged in" also contains "logged in".
 _cli_status_logged_in() {
-  local out="$1"
-  local low="${out,,}"
+  local out="$1" low
+  low="$(to_lower "$out")"
   [[ "$low" == *"not logged in"* ]] && return 1
   [[ "$low" == *"logged in"* || "$low" == *"authenticated"* ]]
 }
@@ -570,6 +570,8 @@ fi
 source "$ROOT/scripts/lib/host-ids.sh"
 # shellcheck source=scripts/lib/image.sh
 source "$ROOT/scripts/lib/image.sh"
+# shellcheck source=scripts/lib/strings.sh
+source "$ROOT/scripts/lib/strings.sh"
 echo "    counter uid:gid: ${COUNTER_UID}:${COUNTER_GID} (host $(id -un))"
 
 bootstrap_sandbox "$ROOT" "$AI_COUNTER_SANDBOX"

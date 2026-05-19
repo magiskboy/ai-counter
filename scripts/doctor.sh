@@ -9,6 +9,8 @@ source "$ROOT/scripts/lib/load-env.sh"
 source "$ROOT/scripts/lib/host-ids.sh"
 # shellcheck source=scripts/lib/image.sh
 source "$ROOT/scripts/lib/image.sh"
+# shellcheck source=scripts/lib/strings.sh
+source "$ROOT/scripts/lib/strings.sh"
 
 SANDBOX="$(mkdir -p "$SANDBOX" 2>/dev/null && cd "$SANDBOX" && pwd)" || SANDBOX="${SANDBOX:-}"
 
@@ -109,7 +111,7 @@ if [[ -f "$SANDBOX/.z8l/cli/supabase-auth.json" ]]; then
   ok "supabase-auth.json in sandbox"
 elif [[ -d "$SANDBOX" ]]; then
   z8l_out="$(HOME="$SANDBOX" "$ROOT/bin/z8l" auth status 2>/dev/null || true)"
-  z8l_low="${z8l_out,,}"
+  z8l_low="$(to_lower "$z8l_out")"
   if [[ "$z8l_low" != *"not logged in"* && "$z8l_low" == *"logged in"* ]]; then
     ok "z8l auth status: logged in"
   else
@@ -137,7 +139,7 @@ elif "$RUNTIME_BIN" ps --format '{{.Names}}' 2>/dev/null | grep -qx "$NAME"; the
     warn "cannot exec into $NAME"
   fi
   z8l_in="$("$RUNTIME_BIN" exec -u counter "$NAME" z8l auth status 2>/dev/null || true)"
-  z8l_in_low="${z8l_in,,}"
+  z8l_in_low="$(to_lower "$z8l_in")"
   if [[ "$z8l_in_low" != *"not logged in"* && "$z8l_in_low" == *"logged in"* ]]; then
     ok "z8l auth inside container"
   else
