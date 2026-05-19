@@ -11,19 +11,24 @@ echo "==> Bootstrap sandbox-test"
 SANDBOX="$SANDBOX" ./sandbox/bootstrap.sh
 ./scripts/chown-sandbox.sh "$SANDBOX" 2>/dev/null || true
 
-# Minimal config: 1 project, 2 sessions
+# Minimal config: 1 project, 2 conversations, 2 user messages each
 cat > "$SANDBOX/ai-counter/config.yaml" <<EOF
+automation:
+  user_messages_per_conversation: 2
+  delay_between_messages_seconds: 1
+  delay_between_conversations_seconds: 2
+
 sandbox:
   projects_dir: projects
   projects:
     - name: fake-api
-      sessions_per_day: 2
+      conversations_per_day: 2
 
 cursor:
   binary: cursor-agent
   flags: ["-p", "--trust", "-f", "--approve-mcps"]
   timeout_seconds: 900
-  delay_between_sessions: 5
+  delay_between_sessions: 2
 
 z8l:
   binary: $ROOT/bin/z8l

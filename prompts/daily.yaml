@@ -1,4 +1,10 @@
-# Rotated daily by orchestrator. Each entry ~= one cursor-agent conversation.
+# Rotated daily by orchestrator. Each entry = one conversation (initial prompt + optional follow_ups).
+# Extra user messages use follow_ups first, then default_follow_ups, until user_messages_per_conversation is met.
+default_follow_ups:
+  - "Continue: pick one idea from your last reply and go one level deeper. Do not modify files unless necessary."
+  - "What are the top 3 risks or gaps with this approach? Keep it concise."
+  - "Summarize your findings in 5 bullets and suggest one concrete next step."
+
 sessions:
   - id: slash-brainstorm
     breadth: [slash]
@@ -6,6 +12,9 @@ sessions:
       /brainstorm
       Brainstorm a minimal daily-job module layout for this repo.
       Analysis only — do not modify files.
+    follow_ups:
+      - Which module would you implement first and why? Analysis only.
+      - List 3 acceptance criteria for that module. No file edits.
 
   - id: skill-tdd
     breadth: [skill]

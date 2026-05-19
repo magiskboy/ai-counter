@@ -97,8 +97,22 @@ def run_preflight(config: AppConfig, *, dry_run: bool = False) -> PreflightResul
     if not config.projects:
         result.errors.append("no projects configured")
 
-    if config.total_sessions_per_day < 1:
-        result.errors.append("total sessions_per_day must be >= 1")
+    if config.total_conversations_per_day < 1:
+        result.errors.append("total conversations_per_day must be >= 1")
+
+    if config.automation.user_messages_per_conversation < 1:
+        result.errors.append("automation.user_messages_per_conversation must be >= 1")
+
+    for project in config.projects:
+        um = config.user_messages_per_conversation(project)
+        if um < 1:
+            result.errors.append(
+                f"user_messages_per_conversation must be >= 1 for {project.name}"
+            )
+        if project.conversations_per_day < 1:
+            result.errors.append(
+                f"conversations_per_day must be >= 1 for {project.name}"
+            )
 
     result.ok = len(result.errors) == 0
     return result

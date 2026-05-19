@@ -73,7 +73,22 @@ tail -f ~/ai-counter-sandbox/ai-counter/logs/cron.log
 
 **Cron tự động:** Thứ 2–6, **06:30 UTC** (user `counter`).
 
-**Sửa số session / delay:** chỉnh `~/ai-counter-sandbox/ai-counter/config.yaml` (không cần rebuild image).
+**Sửa mục tiêu automation / delay:** chỉnh `~/ai-counter-sandbox/ai-counter/config.yaml` (không cần rebuild image). Ví dụ:
+
+```yaml
+automation:
+  user_messages_per_conversation: 2   # mặc định cho mọi project
+  delay_between_messages_seconds: 20
+  delay_between_conversations_seconds: 45
+
+sandbox:
+  projects:
+    - name: fake-api
+      conversations_per_day: 4        # số conversation mỗi ngày
+      user_messages_per_conversation: 3  # ghi đè mặc định cho project này
+```
+
+`follow_ups` trong `prompts/daily.yaml` (hoặc `default_follow_ups`) là nội dung các user message tiếp theo trong cùng conversation. `sessions_per_day` vẫn được chấp nhận như alias của `conversations_per_day`.
 
 ---
 
@@ -87,7 +102,7 @@ tail -f ~/ai-counter-sandbox/ai-counter/logs/cron.log
 | 4 | Token z8l: **`$SANDBOX/.z8l/cli/supabase-auth.json`** — không commit sandbox lên git. |
 | 5 | Cursor: truyền **`CURSOR_API_KEY`** khi run container (khuyến nghị cho cron/headless). |
 | 6 | Fedora/SELinux: giữ suffix **`:Z`** trên volume mount. |
-| 7 | Daily mặc định ~10 session, có thể chạy vài giờ; test nhanh: đặt `sessions_per_day: 1` trong config. |
+| 7 | Daily mặc định ~10 conversation; test nhanh: `conversations_per_day: 1` và `user_messages_per_conversation: 1`. |
 | 8 | `HOME is not writable` → chạy lại `./scripts/chown-sandbox.sh "$SANDBOX"` + `--userns=keep-id`. |
 
 ---

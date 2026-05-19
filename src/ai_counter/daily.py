@@ -50,13 +50,18 @@ def run_daily(*, dry_run: bool = False) -> int:
     log("preflight ok")
 
     prompts = load_prompts(Path(config.prompts.file))
-    log(f"loaded {len(prompts)} prompts from {config.prompts.file}")
+    log(
+        f"loaded {len(prompts.sessions)} prompts from {config.prompts.file} "
+        f"(default {config.automation.user_messages_per_conversation} user msg/conversation)"
+    )
 
     all_results = []
     all_upload_ok = True
 
     for project in config.projects:
-        log(f"--- project: {project.name} ({project.sessions_per_day} sessions) ---")
+        conv = config.conversations_per_day(project)
+        um = config.user_messages_per_conversation(project)
+        log(f"--- project: {project.name} ({conv} conversations × {um} user messages) ---")
         proj_path = config.projects_dir / project.name
         results = run_project_sessions(
             config,
