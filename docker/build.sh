@@ -14,6 +14,6 @@ fi
 if command -v podman >/dev/null 2>&1; then
   podman build -f docker/Dockerfile -t ai-counter:latest "${BUILD_ARGS[@]}" .
 else
-  docker build -f docker/Dockerfile -t ai-counter:latest "${BUILD_ARGS[@]}" .
+  docker build -f docker/Dockerfile -t ai-counter:latest .
 fi
 echo "Built ai-counter:latest"
