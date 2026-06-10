@@ -1,49 +1,36 @@
-# Copy to $SANDBOX/ai-counter/config.yaml after bootstrap.
-# Paths below are relative to HOME (/home/counter in the user `counter`).
+# Default sandbox config (copied to ~/.sandbox-ai-counter by ./install.sh).
+# Add your git repos under projects/ and list them below.
 
-# Global automation targets (each project can override).
 automation:
-  user_messages_per_conversation: 5
-  delay_between_messages_seconds: 5
-  # If omitted, uses cursor.delay_between_sessions
+  user_messages_per_conversation: 2
+  delay_between_messages_seconds: 20
   delay_between_conversations_seconds: 45
 
-# Agent skills: installed via `npx skills add <repo> --skill <name> -a cursor -y`
-# See: npx skills --help  |  https://github.com/vercel-labs/agent-skills
 skills:
   agent: cursor
   yes: true
   default_repo: https://github.com/obra/superpowers
-  # Installed once into $HOME/.agents/skills/ (-g) for all projects
   global_packages:
     - repo: https://github.com/obra/superpowers
       skills:
         - brainstorming
+    - repo: https://github.com/mohitmishra786/low-level-dev-skills
+      skills:
+        - linux-perf
+    - repo: https://github.com/affaan-m/everything-claude-code
+      skills:
+        - cpp-coding-standards
 
 sandbox:
   projects_dir: projects
   projects:
-    - name: uasgi
-      conversations_per_day: 4
-      user_messages_per_conversation: 3
-      skills:
-        - systematic-debugging
-        - writing-plans
     - name: wrk
-      conversations_per_day: 3
-      user_messages_per_conversation: 3
-      skills:
-        - repo: https://github.com/obra/superpowers
-          names: [using-superpowers]
-          global: true
-    - name: genogram
-      conversations_per_day: 3
-      user_messages_per_conversation: 3
+      conversations_per_day: 7
+      user_messages_per_conversation: 4
+      skills: [systematic-debugging, cpp-coding-standards, linux-perf]
 
 cursor:
   binary: cursor-agent
-  # Headless auto-approve (see cursor.com/docs/cli/headless, /cli/mcp):
-  # -p/--print + --trust (workspace) + --force/--yolo (shell/file tools) + --approve-mcps (MCP)
   flags:
     - "-p"
     - "--trust"
@@ -56,11 +43,11 @@ z8l:
   binary: /usr/local/bin/z8l
   sync_provider: cursor
 
+# Cron 06:30 Mon–Fri, timezone Asia/Ho_Chi_Minh (fixed in container, not configurable).
 schedule:
-  # Container TZ (cron + logs). Override with -e TZ=... on podman run, or mount host /etc/localtime.
-  timezone: Asia/Ho_Chi_Minh
   cron: "30 6 * * 1-5"
 
+# Relative to sandbox HOME; loaded at runtime (not in Docker image).
 prompts:
   file: /opt/ai-counter/prompts/daily.yaml
   rotate: daily

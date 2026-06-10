@@ -106,15 +106,18 @@ else
   echo "  SANDBOX=$SANDBOX $REPO_ROOT/scripts/install-sandbox-skills.sh"
 fi
 
+# Auth z8l + cursor-agent vào sandbox (host login → sandbox đã mount → container dùng lại).
+# Idempotent + non-fatal. Tắt bằng BOOTSTRAP_SKIP_AUTH=1.
+SANDBOX="$SANDBOX" "$SCRIPT_DIR/auth.sh" "$SANDBOX" || true
+
 cat <<EOF
 
 Sandbox ready: $SANDBOX
 
 Next steps:
   1. Edit $SANDBOX/.cursor/mcp.json (skills live in $SANDBOX/.agents/skills/)
-  2. z8l auth ON HOST (OAuth needs browser on host, not in container):
-       HOME=$SANDBOX $REPO_ROOT/bin/z8l auth login
-       # or: cp ~/.z8l/cli/supabase-auth.json $SANDBOX/.z8l/cli/
+  2. Auth: đã tự chạy ở trên. Nếu còn thiếu, chạy lại: make login
+       (z8l/cursor login trên host với HOME=$SANDBOX — credential nằm trong sandbox)
   3. Build: ./docker/build.sh
   4. chown: ./scripts/chown-sandbox.sh $SANDBOX
   5. Run: podman run -d --userns=keep-id -v $SANDBOX:/home/counter \\
